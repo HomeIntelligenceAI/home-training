@@ -1,5 +1,18 @@
+# HFM-2 reference config. Numbers fixed by decision D4; see
+# home-docs/architecture/system-design.md section 8.
+#
+# vocab_size matches what home-tokenizer already implements (BPETrainer
+# defaults to 32768). It is a power of two, and at dim 768 it puts 25.2M
+# params in the tied embedding rather than the 38.4M that vocab 50000 cost,
+# leaving more capacity in the layers that do the reasoning.
+#
+# seq_len 1024 rather than 2048: attention memory scales with the square of
+# context, and the reference device has 4 GB of VRAM. RoPE means context can
+# be extended later without retraining from scratch.
+#
+# Resulting size: ~138M parameters.
 model:
-  vocab_size: 50000
+  vocab_size: 32768
   dim: 768
   num_layers: 12
   num_heads: 12
@@ -8,7 +21,7 @@ model:
 
 data:
   batch_size: 4
-  seq_len: 512
+  seq_len: 1024
 
 optimizer:
   lr: 5.0e-4
