@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+dist/
+build/
+.env
+.venv
+venv/
+ENV/
+
+# Model artefacts and data
+*.bin
+*.pt
+*.pth
+*.pkl
+*.npy
+*.npz
+checkpoints/
+logs/
+runs/
+
+# Never commit images or documents: this project handles family data,
+# and a stray scan or personal photo must not reach GitHub.
+*.jpg
+*.jpeg
+*.png
+*.bmp
+*.tif
+*.tiff
+*.pdf
+
+# Tooling
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+.pytest_cache/
+.coverage
+htmlcov/
