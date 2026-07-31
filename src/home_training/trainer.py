@@ -11,10 +11,7 @@ import torch.nn as nn
 from torch.utils.tensorboard import SummaryWriter
 from torch.nn.utils import clip_grad_norm_
 
-# Import the real transformer block from home-transformer
-import sys
-sys.path.append(str(pathlib.Path(__file__).resolve().parents[2] / "home-transformer" / "src"))
-from transformer import TransformerBlock
+from home_transformer import TransformerBlock
 
 
 class HFM2Model(nn.Module):

@@ -1,0 +1,24 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "home-training"
+version = "0.1.0"
+description = "Training loop, schedules, and evaluation for HFM-2."
+requires-python = ">=3.13"
+dependencies = ["torch>=2.2", "pyyaml", "tensorboard", "home-transformer"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.3", "mypy>=1.13", "ruff>=0.8"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/home_training"]
+
+[tool.ruff]
+line-length = 88
+src = ["src", "tests"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --strict-markers"
