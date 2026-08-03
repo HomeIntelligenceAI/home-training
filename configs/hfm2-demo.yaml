@@ -1,0 +1,32 @@
+# Demonstration config: proves the pipeline end to end on the 4.7 MB bilingual
+# corpus. NOT the reference architecture -- see hfm2-138m.yaml for that.
+#
+# Sized to the data, not to ambition. 651K training tokens is compute-optimal
+# for roughly a 33K-parameter model; at 7M this is already heavily
+# over-parameterised, so expect memorisation rather than generalisation.
+train_bin: ../../corpus/tokens/train.bin
+val_bin: ../../corpus/tokens/val.bin
+out_dir: ../../corpus/checkpoints-demo
+
+batch_size: 16
+grad_accum_steps: 2
+max_steps: 400
+warmup_steps: 40
+lr: 0.001
+weight_decay: 0.1
+grad_clip: 1.0
+
+eval_interval: 100
+eval_batches: 10
+checkpoint_interval: 200
+log_interval: 25
+
+device: cpu
+
+model:
+  vocab_size: 8192
+  dim: 192
+  n_layers: 4
+  n_heads: 6
+  hidden_dim: 512
+  max_seq_len: 128

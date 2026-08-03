@@ -1,0 +1,47 @@
+# HFM-2 reference configuration. Architecture fixed by decision D4:
+# vocab 32,768 (matching home-tokenizer), context 1024, 138.5M parameters.
+#
+# NOT runnable yet. It needs a real corpus -- R0 in the roadmap exists to
+# measure how many quality Telugu tokens are actually obtainable, and this
+# model wants ~2.8B to be compute-optimal.
+#
+# Memory on the reference device (RTX 3050 Laptop, 4 GB):
+#   params bf16                 0.28 GB
+#   AdamW state fp32 (m, v)     1.11 GB
+#   fp32 master + grads         1.11 GB
+#   activations @ bs1/ctx1024   ~0.4 GB with gradient checkpointing
+#   ------------------------------------------------------------------
+#   ~2.9 GB, which fits -- but only with checkpointing on and batch_size 1.
+#   The effective batch comes from accumulation instead.
+train_bin: ../../corpus/tokens/train.bin
+val_bin: ../../corpus/tokens/val.bin
+out_dir: ../../corpus/checkpoints-138m
+
+batch_size: 1
+grad_accum_steps: 32          # effective batch 32 x 1024 = 32,768 tokens/step
+max_steps: 100000
+warmup_steps: 2000
+lr: 0.0003
+min_lr_ratio: 0.1
+weight_decay: 0.1
+beta1: 0.9
+beta2: 0.95
+grad_clip: 1.0
+
+eval_interval: 1000
+eval_batches: 50
+checkpoint_interval: 1000     # ~30 min of wall clock; a crash costs one interval
+log_interval: 50
+
+gradient_checkpointing: true  # not optional at 4 GB
+# dtype: null -> bfloat16 on Ampere and later, float16 otherwise
+
+model:
+  vocab_size: 32768
+  dim: 768
+  n_layers: 12
+  n_heads: 12
+  # n_kv_heads: 4  # enable GQA to cut the KV cache 3x during generation
+  hidden_dim: 3072
+  max_seq_len: 1024
+  dropout: 0.0
