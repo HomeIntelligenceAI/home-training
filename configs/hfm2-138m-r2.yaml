@@ -1,0 +1,46 @@
+# HFM-2 138M — R2 proving run on the real Telugu corpus.
+#
+# Purpose: exercise the full pipeline at real scale and produce a genuine loss
+# curve. This is NOT the compute-optimal run.
+#
+# The corpus is ~277M tokens (400,000 FineWeb-2 documents, 20% of the split).
+# A 138M model wants 2.77B to be compute-optimal, so this is 10% of that. At
+# 32,768 tokens/step one epoch is ~8,450 steps; 600 steps is well under a
+# single pass, which is the right place to be for a proving run — the loss
+# curve is honest and nothing is memorised.
+#
+# Measured on this device: 4,784 tok/s, 6.8 s/step, 2.63 GB peak of 4.29 GB.
+# 600 steps is roughly 70 minutes.
+#
+# Tokens come from home-tokenizer/vocab/hfm2-te-32768.v1.json (FROZEN,
+# sha256 da9f723f...). If that checksum ever changes, these bins are stale.
+train_bin: C:/HomeAI_Corpus/tokens/train.bin
+val_bin: C:/HomeAI_Corpus/tokens/val.bin
+out_dir: C:/HomeAI_Corpus/checkpoints-138m-r2
+
+batch_size: 2
+grad_accum_steps: 16          # 32,768 tokens/step
+max_steps: 600
+warmup_steps: 60              # 10% of the run
+lr: 0.0003
+min_lr_ratio: 0.1
+weight_decay: 0.1
+beta1: 0.9
+beta2: 0.95
+grad_clip: 1.0
+
+eval_interval: 50
+eval_batches: 20
+checkpoint_interval: 100
+log_interval: 10
+
+gradient_checkpointing: true
+
+model:
+  vocab_size: 32768
+  dim: 768
+  n_layers: 12
+  n_heads: 12
+  hidden_dim: 3072
+  max_seq_len: 1024
+  dropout: 0.0
