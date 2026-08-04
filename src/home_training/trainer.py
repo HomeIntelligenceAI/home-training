@@ -108,6 +108,11 @@ class Trainer:
             else None
         )
 
+        # Fail before the first step rather than after seven days.
+        self.vocab_check = self.train_data.check_against_vocab(
+            self.model_config.vocab_size
+        )
+
         self.optimizer = torch.optim.AdamW(
             self.model.param_groups(config.weight_decay),
             lr=config.lr,
@@ -142,7 +147,8 @@ class Trainer:
             f"val    {self.val_data.stats if self.val_data else 'none'}\n"
             f"batch  {self.config.batch_size} x {self.config.grad_accum_steps} accum "
             f"x {self.model_config.max_seq_len} ctx "
-            f"= {self.config.tokens_per_step:,} tokens/step"
+            f"= {self.config.tokens_per_step:,} tokens/step\n"
+            f"vocab  {self.vocab_check}"
         )
 
     def train(self) -> dict[str, float]:
@@ -196,14 +202,21 @@ class Trainer:
                 print(
                     f"step {self.step:>6}  loss {mean:.4f}  "
                     f"ppl {math.exp(min(mean, 20)):>9.1f}  lr {lr:.2e}  "
-                    f"{tok_s:,.0f} tok/s"
+                    f"{tok_s:,.0f} tok/s",
+                    # Unbuffered: stdout block-buffers when redirected to a
+                    # file, so a multi-day run would show nothing until it
+                    # exited -- indistinguishable from a hang.
+                    flush=True,
                 )
                 running_loss = 0.0
                 started = time.perf_counter()
 
             if self.val_data and self.step % self.config.eval_interval == 0:
                 val = self.evaluate()
-                print(f"  eval  loss {val:.4f}  ppl {math.exp(min(val, 20)):.1f}")
+                print(
+                    f"  eval  loss {val:.4f}  ppl {math.exp(min(val, 20)):.1f}",
+                    flush=True,
+                )
                 if val < self.best_val_loss:
                     self.best_val_loss = val
                     self.save_checkpoint("best.pt")

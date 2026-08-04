@@ -90,3 +90,42 @@ class TestTokenDataset:
         batches = data.sequential_batches(1, 3, torch.device("cpu"))
         starts = [int(x[0, 0].item()) for x, _ in batches]
         assert starts == [0, 8, 16]
+
+
+class TestVocabGuard:
+    """A stream tokenised with the wrong vocabulary must fail before step 1.
+
+    This is not hypothetical. A stale config pointed a 32,768-vocab model at a
+    651K-token stream built with vocab 8,192. It trained happily at 93% GPU
+    utilisation, with 75% of the embedding receiving no gradient at all, and
+    would have burned seven days producing nothing. Nothing raised.
+    """
+
+    def test_ids_beyond_vocab_are_rejected(self, tmp_path: Path) -> None:
+        path = tmp_path / "big.bin"
+        write_tokens(path, list(range(2000)) * 10)
+        data = TokenDataset(path, seq_len=16)
+        with pytest.raises(ValueError, match="different, larger vocabulary"):
+            data.check_against_vocab(vocab_size=1000)
+
+    def test_low_utilisation_is_rejected(self, tmp_path: Path) -> None:
+        """The mismatch that produced no error: stream vocab far below model."""
+        path = tmp_path / "small.bin"
+        write_tokens(path, list(range(200)) * 100)
+        data = TokenDataset(path, seq_len=16)
+        with pytest.raises(ValueError, match="never be trained"):
+            data.check_against_vocab(vocab_size=32768)
+
+    def test_matching_vocab_passes_and_reports(self, tmp_path: Path) -> None:
+        path = tmp_path / "ok.bin"
+        write_tokens(path, list(range(900)) * 20)
+        data = TokenDataset(path, seq_len=16)
+        summary = data.check_against_vocab(vocab_size=1000)
+        assert "90.0% of vocab" in summary
+
+    def test_the_boundary_id_is_allowed(self, tmp_path: Path) -> None:
+        """vocab_size N means valid ids are 0..N-1; N-1 must not be rejected."""
+        path = tmp_path / "edge.bin"
+        write_tokens(path, list(range(1000)) * 10)
+        data = TokenDataset(path, seq_len=16)
+        assert data.check_against_vocab(vocab_size=1000)

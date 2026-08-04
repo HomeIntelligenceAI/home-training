@@ -74,6 +74,45 @@ class TokenDataset:
     def stats(self) -> DataStats:
         return DataStats(len(self.tokens), self.path.stat().st_size)
 
+    def check_against_vocab(self, vocab_size: int, sample: int = 5_000_000) -> str:
+        """Verify the token stream matches the model's vocabulary.
+
+        Pointing a model at a stream built with a different tokenizer is
+        silent: ids simply mean something else, and if the stream's vocabulary
+        is *smaller* the surplus embedding rows never receive a gradient. There
+        is no error, no crash, just a model that trains and learns nothing
+        useful. This is the check that turns that into a loud failure.
+
+        Returns a human-readable summary, or raises if the stream cannot
+        possibly have come from this vocabulary.
+        """
+        window = np.asarray(self.tokens[: min(len(self.tokens), sample)])
+        highest = int(window.max()) if window.size else 0
+        distinct = int(np.unique(window).size)
+
+        if highest >= vocab_size:
+            raise ValueError(
+                f"{self.path} contains token id {highest}, but the model "
+                f"vocab_size is {vocab_size}. The stream was tokenised with a "
+                f"different, larger vocabulary."
+            )
+
+        utilisation = distinct / vocab_size
+        summary = (
+            f"{distinct:,} distinct ids in the first {window.size:,} tokens "
+            f"({utilisation:.1%} of vocab {vocab_size:,})"
+        )
+        if utilisation < 0.5:
+            # Not fatal -- a small corpus legitimately uses few ids -- but at
+            # this level the usual cause is a vocabulary mismatch.
+            raise ValueError(
+                f"{summary}. Over half the embedding would never be trained. "
+                f"This almost always means {self.path} was tokenised with a "
+                f"different vocabulary than the model expects. Re-tokenise, or "
+                f"set the correct vocab_size."
+            )
+        return summary
+
     def batch(
         self,
         batch_size: int,

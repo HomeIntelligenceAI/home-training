@@ -23,14 +23,21 @@
 # Measured without checkpointing: bs2 -> 516 tok/s, bs4 -> 369, bs6 -> 149.
 # That is 9-32x slower while looking like it works. If throughput drops off a
 # cliff after a config change, check peak VRAM before anything else.
-train_bin: ../../corpus/tokens/train.bin
-val_bin: ../../corpus/tokens/val.bin
-out_dir: ../../corpus/checkpoints-138m
+# The real corpus, NOT repos/corpus/tokens -- that is the 651K-token demo
+# stream built with vocab 8,192, and pointing a 32,768-vocab model at it
+# trains 75% of the embedding on nothing while raising no error.
+train_bin: C:/HomeAI_Corpus/tokens/train.bin
+val_bin: C:/HomeAI_Corpus/tokens/val.bin
+out_dir: C:/HomeAI_Corpus/checkpoints-138m
 
 batch_size: 2
 grad_accum_steps: 16          # effective batch 32 x 1024 = 32,768 tokens/step
-max_steps: 100000
-warmup_steps: 2000
+# 25,000 steps x 32,768 tokens = 819M tokens = 2.9 epochs over the current
+# 280M-token corpus. Past roughly 3 epochs a 138M model starts memorising
+# rather than learning. Reaching compute-optimal 2.77B needs the remaining
+# ~1.58M FineWeb documents downloaded first -- then raise this to ~85,000.
+max_steps: 25000
+warmup_steps: 500
 lr: 0.0003
 min_lr_ratio: 0.1
 weight_decay: 0.1
