@@ -43,14 +43,17 @@ def main() -> None:
 
     train_config, model_config = load_config(args.config)
     trainer = Trainer(train_config, model_config)
-    print(trainer.describe())
+    # flush: under `start /b cmd /c "... > log"` this text otherwise sits in
+    # the buffer until the first step logs, so a freshly launched run looks
+    # dead for several minutes.
+    print(trainer.describe(), flush=True)
 
     if args.dry_run:
         return
 
     if args.resume:
         trainer.load_checkpoint(args.resume)
-        print(f"resumed from {args.resume} at step {trainer.step}")
+        print(f"resumed from {args.resume} at step {trainer.step}", flush=True)
 
     result = trainer.train()
     print(f"\ndone. step {int(result['step'])}, best val loss {result['best_val_loss']:.4f}")
