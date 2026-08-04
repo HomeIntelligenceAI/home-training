@@ -1,24 +1,34 @@
 # HFM-2 reference configuration. Architecture fixed by decision D4:
 # vocab 32,768 (matching home-tokenizer), context 1024, 138.5M parameters.
 #
-# NOT runnable yet. It needs a real corpus -- R0 in the roadmap exists to
-# measure how many quality Telugu tokens are actually obtainable, and this
-# model wants ~2.8B to be compute-optimal.
+# Blocked only on data. R0 in the roadmap exists to measure how many quality
+# Telugu tokens are actually obtainable; this model wants ~2.8B to be
+# compute-optimal.
 #
-# Memory on the reference device (RTX 3050 Laptop, 4 GB):
-#   params bf16                 0.28 GB
-#   AdamW state fp32 (m, v)     1.11 GB
-#   fp32 master + grads         1.11 GB
-#   activations @ bs1/ctx1024   ~0.4 GB with gradient checkpointing
-#   ------------------------------------------------------------------
-#   ~2.9 GB, which fits -- but only with checkpointing on and batch_size 1.
-#   The effective batch comes from accumulation instead.
+# MEASURED on the reference device (RTX 3050 A Laptop, 4.29 GB, sm_89,
+# torch 2.13.0+cu130, bf16 autocast). Median of 8 timed steps after warmup:
+#
+#   config                  peak VRAM   tok/s   2.8B tokens
+#   bs1 + checkpointing        2.35 GB   2,253      14.4 d
+#   bs2 + checkpointing        2.63 GB   4,784       6.8 d   <-- chosen
+#   bs1, no checkpointing      2.96 GB   4,138       7.8 d
+#
+# An earlier version of this file estimated ~2.9 GB and claimed batch_size 1
+# with checkpointing was the only thing that fits. Both parts were wrong: the
+# real peak at bs1 is 2.35 GB, and bs2 is both faster and still well inside
+# the card.
+#
+# WARNING -- anything whose peak exceeds 4.29 GB does NOT raise OutOfMemory.
+# It silently spills to host RAM and keeps running at a fraction of the speed.
+# Measured without checkpointing: bs2 -> 516 tok/s, bs4 -> 369, bs6 -> 149.
+# That is 9-32x slower while looking like it works. If throughput drops off a
+# cliff after a config change, check peak VRAM before anything else.
 train_bin: ../../corpus/tokens/train.bin
 val_bin: ../../corpus/tokens/val.bin
 out_dir: ../../corpus/checkpoints-138m
 
-batch_size: 1
-grad_accum_steps: 32          # effective batch 32 x 1024 = 32,768 tokens/step
+batch_size: 2
+grad_accum_steps: 16          # effective batch 32 x 1024 = 32,768 tokens/step
 max_steps: 100000
 warmup_steps: 2000
 lr: 0.0003
@@ -30,11 +40,11 @@ grad_clip: 1.0
 
 eval_interval: 1000
 eval_batches: 50
-checkpoint_interval: 1000     # ~30 min of wall clock; a crash costs one interval
+checkpoint_interval: 500      # measured 6.8s/step, so ~1 hour between saves
 log_interval: 50
 
-gradient_checkpointing: true  # not optional at 4 GB
-# dtype: null -> bfloat16 on Ampere and later, float16 otherwise
+gradient_checkpointing: true  # measured faster AND smaller than bs1 without it
+# dtype: null -> bfloat16 here (sm_89 supports it natively, so no GradScaler)
 
 model:
   vocab_size: 32768
