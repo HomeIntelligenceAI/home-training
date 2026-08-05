@@ -168,7 +168,12 @@ class Trainer:
                 group["lr"] = lr
 
             self.optimizer.zero_grad(set_to_none=True)
-            accumulated = 0.0
+            # Accumulated on-device. Calling .item() inside the loop forces a
+            # host sync per micro-batch -- 16 pipeline stalls per step, each
+            # one waiting for the CPU to catch up before the GPU can be handed
+            # more work. Summing as a tensor and reading once per step leaves
+            # the queue full.
+            accumulated_t = torch.zeros((), device=self.device)
             for _ in range(self.config.grad_accum_steps):
                 x, y = self.train_data.batch(
                     self.config.batch_size, self.device, self.generator
@@ -181,7 +186,7 @@ class Trainer:
                     # that would otherwise have been fine.
                     loss = loss / self.config.grad_accum_steps
                 self.scaler.scale(loss).backward()
-                accumulated += loss.item()
+                accumulated_t += loss.detach()
 
             if self.config.grad_clip > 0:
                 # Unscale first, or the threshold is compared against scaled
@@ -192,7 +197,8 @@ class Trainer:
             self.scaler.step(self.optimizer)
             self.scaler.update()
 
-            running_loss += accumulated
+            # The single sync point per step.
+            running_loss += accumulated_t.item()
             self.step += 1
 
             if self.step % self.config.log_interval == 0:

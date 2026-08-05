@@ -149,28 +149,27 @@ class TokenDataset:
     def _gather(
         self, offsets: torch.Tensor, device: torch.device
     ) -> tuple[torch.Tensor, torch.Tensor]:
+        # One fancy-index into the memmap rather than a Python loop of slices.
+        # The loop version ran ~4 operations per sample (slice, astype,
+        # from_numpy, then a stack); on a batch of 32 that is over a hundred
+        # interpreter-level calls per step, and on a machine where something
+        # else is eating the CPU it starves the GPU. Fancy indexing reads only
+        # the pages it touches, so the memmap stays lazy.
+        starts = offsets.numpy().astype(np.int64)
+        window = starts[:, None] + np.arange(self.seq_len + 1, dtype=np.int64)
+
         # astype(int64) before torch.from_numpy: torch has no uint16 dtype, and
-        # a silent reinterpret here would corrupt every id above 32,767.
-        x = torch.stack(
-            [
-                torch.from_numpy(
-                    self.tokens[i : i + self.seq_len].astype(np.int64)
-                )
-                for i in offsets.tolist()
-            ]
-        )
-        y = torch.stack(
-            [
-                torch.from_numpy(
-                    self.tokens[i + 1 : i + 1 + self.seq_len].astype(np.int64)
-                )
-                for i in offsets.tolist()
-            ]
-        )
+        # a silent reinterpret would corrupt every id above 32,767.
+        chunk = np.asarray(self.tokens[window], dtype=np.int64)
+
+        x = torch.from_numpy(chunk[:, :-1])
+        y = torch.from_numpy(chunk[:, 1:])
         if device.type == "cuda":
             # pin_memory + non_blocking overlaps the host copy with compute.
+            # contiguous() first: the slices above are views with a stride, and
+            # pinning requires contiguous storage.
             return (
-                x.pin_memory().to(device, non_blocking=True),
-                y.pin_memory().to(device, non_blocking=True),
+                x.contiguous().pin_memory().to(device, non_blocking=True),
+                y.contiguous().pin_memory().to(device, non_blocking=True),
             )
         return x.to(device), y.to(device)
