@@ -3,8 +3,16 @@
 # 85,000 steps x 32,768 tokens = 2.79B tokens, which is 20 per parameter for a
 # 138.4M model. This is the run the whole project has been building toward.
 #
-# PREREQUISITE: the full corpus. hfm2-138m.yaml trains on 280M tokens (20% of
-# FineWeb's Telugu split); this needs ~2.8B, built by
+# CORPUS: 1.88B unique tokens downloaded -- FineWeb-2 (1.22B), C4 (0.45B),
+# Sangraha (0.21B). IndicCorp and Wikipedia were lost to a network failure
+# mid-build; re-running build_full_corpus picks them up and skips the rest.
+#
+# 85,000 steps sees 2.79B tokens = 1.48 epochs over that 1.88B. Repeating data
+# up to a few epochs costs little compared with having fewer tokens, so this
+# still reaches 20.1 tokens per parameter. Adding the two missing sources would
+# bring it closer to a single pass, which is mildly better.
+#
+# Built by
 #   python -m home_dataset.build_full_corpus --out C:\HomeAI_Corpus\raw_full
 # then tokenised to C:\HomeAI_Corpus\tokens_full. The trainer refuses to start
 # if the token stream does not match the vocabulary, so a wrong path fails
