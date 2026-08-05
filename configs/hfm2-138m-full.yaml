@@ -1,0 +1,49 @@
+# HFM-2 138M -- the compute-optimal run.
+#
+# 85,000 steps x 32,768 tokens = 2.79B tokens, which is 20 per parameter for a
+# 138.4M model. This is the run the whole project has been building toward.
+#
+# PREREQUISITE: the full corpus. hfm2-138m.yaml trains on 280M tokens (20% of
+# FineWeb's Telugu split); this needs ~2.8B, built by
+#   python -m home_dataset.build_full_corpus --out C:\HomeAI_Corpus\raw_full
+# then tokenised to C:\HomeAI_Corpus\tokens_full. The trainer refuses to start
+# if the token stream does not match the vocabulary, so a wrong path fails
+# immediately rather than after days.
+#
+# WALL CLOCK on the RTX 3050 A (measured, not estimated):
+#   4,272 tok/s observed with OneDrive + Google Drive running   -> ~7.5 days
+#   6,600 tok/s observed with both paused                       -> ~4.9 days
+# Pausing cloud sync is worth roughly 2.5 days on this run.
+#
+# Checkpoints every 1,000 steps (~1.1 h). A crash costs at most that.
+train_bin: C:/HomeAI_Corpus/tokens_full/train.bin
+val_bin: C:/HomeAI_Corpus/tokens_full/val.bin
+out_dir: C:/HomeAI_Corpus/checkpoints-138m-full
+
+batch_size: 2
+grad_accum_steps: 16          # 32,768 tokens/step
+max_steps: 85000
+warmup_steps: 2000            # ~2.4% of the run; long runs want a longer ramp
+lr: 0.0003
+min_lr_ratio: 0.1
+weight_decay: 0.1
+beta1: 0.9
+beta2: 0.95
+grad_clip: 1.0
+
+eval_interval: 2000
+eval_batches: 50              # more batches than the short runs: a noisy eval
+                              # curve is useless for spotting overfitting
+checkpoint_interval: 1000
+log_interval: 100
+
+gradient_checkpointing: true
+
+model:
+  vocab_size: 32768
+  dim: 768
+  n_layers: 12
+  n_heads: 12
+  hidden_dim: 3072
+  max_seq_len: 1024
+  dropout: 0.0
