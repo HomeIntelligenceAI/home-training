@@ -1,0 +1,51 @@
+# HFM-2 138M -- cloud config, for a 16 GB GPU (Kaggle P100/T4, rented 4090/A100).
+#
+# The local config exists to survive 4 GB: batch_size 2 with gradient
+# checkpointing, which recomputes activations to save memory and costs ~30%
+# speed. With 16 GB none of that is necessary.
+#
+#   batch_size 8, no checkpointing, accumulation 4 -> same 32,768 tokens/step
+#
+# Memory estimate from the measured local numbers (bs2+ckpt = 2.63 GB,
+# bs2 no-ckpt = 3.92 GB, so ~0.65 GB of activations per sample):
+#   fixed (params + AdamW + grads)   ~2.3 GB
+#   activations at batch 8            ~5.2 GB
+#   ----------------------------------------
+#                                     ~7.5 GB of 16 GB -- comfortable
+#
+# If the GPU has 24 GB or more, raise batch_size to 16 and drop
+# grad_accum_steps to 2. Keep the product at 32.
+#
+# Paths assume the Kaggle/cloud layout created by tools/cloud_bootstrap.py.
+train_bin: /kaggle/working/tokens/train.bin
+val_bin: /kaggle/working/tokens/val.bin
+out_dir: /kaggle/working/checkpoints
+
+batch_size: 8
+grad_accum_steps: 4           # 8 x 4 x 1024 = 32,768 tokens/step
+max_steps: 85000
+warmup_steps: 2000
+lr: 0.0003
+min_lr_ratio: 0.1
+weight_decay: 0.1
+beta1: 0.9
+beta2: 0.95
+grad_clip: 1.0
+
+eval_interval: 2000
+eval_batches: 50
+# Every 500 steps rather than 1000: a Kaggle session can be cut off at 12
+# hours, and losing 500 steps is cheaper than losing 1000.
+checkpoint_interval: 500
+log_interval: 100
+
+gradient_checkpointing: false  # not needed above ~8 GB, and ~30% faster without
+
+model:
+  vocab_size: 32768
+  dim: 768
+  n_layers: 12
+  n_heads: 12
+  hidden_dim: 3072
+  max_seq_len: 1024
+  dropout: 0.0
